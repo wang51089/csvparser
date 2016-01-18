@@ -28,6 +28,9 @@ public class CSVParser {
         ArrayNode columns = tableSchema.putArray("columns");
         //3.If the URL of the tabular data file being parsed is known, set the url property on M to that URL
         Scanner scanner = new Scanner(System.in);
+        System.out.println("input the table id:");
+        String id = scanner.nextLine().trim();
+        T.setId(id);
         System.out.println("Do you know the URL of the tabular data file?[Y/N]");
         String yn = scanner.nextLine().trim();
         if ("y".equalsIgnoreCase(yn) || "yes".equalsIgnoreCase(yn)) {

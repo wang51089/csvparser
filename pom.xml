@@ -11,6 +11,7 @@
     <properties>
         <jackson.version>2.6.0</jackson.version>
         <commons-io.version>2.4</commons-io.version>
+        <gson.verson>2.5</gson.verson>
     </properties>
 
     <dependencies>
@@ -35,6 +36,11 @@
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>${commons-io.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.verson}</version>
         </dependency>
 
     </dependencies>
