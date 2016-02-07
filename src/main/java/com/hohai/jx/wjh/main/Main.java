@@ -25,7 +25,9 @@ public class Main {
         CSVParser csvParser = new CSVParser();
         ResultTable resultTable = null;
         try {
-            resultTable  = csvParser.parse("D:/dialect.json" , "D:/tabular_data_file.txt");
+            //java -jar csvparser-1.0-SNAPSHOT-jar-with-dependencies.jar D:/dialect.json D:/tabular_data_file.txt
+            /*resultTable  = csvParser.parse("D:/dialect.json" , "D:/tabular_data_file.txt");*/
+            resultTable = csvParser.parse(args[0] , args[1]);
         } catch (IOException e) {
             e.printStackTrace();
         }
