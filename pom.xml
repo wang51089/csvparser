@@ -12,6 +12,7 @@
         <jackson.version>2.6.0</jackson.version>
         <commons-io.version>2.4</commons-io.version>
         <gson.verson>2.5</gson.verson>
+        <commons-lang3>3.3.2</commons-lang3>
     </properties>
 
     <dependencies>
@@ -38,9 +39,20 @@
             <version>${commons-io.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3}</version>
+        </dependency>
+        <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.verson}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.jsonld-java</groupId>
+            <artifactId>jsonld-java</artifactId>
+            <version>0.8.2</version>
         </dependency>
 
     </dependencies>
