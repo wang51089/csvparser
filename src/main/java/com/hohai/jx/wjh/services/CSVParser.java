@@ -342,11 +342,11 @@ public class CSVParser {
                     System.out.println("illegal input!");
                 }
             } else if (command.startsWith("delete")) {
-                System.out.println("please enter the array index!");
                 int commandPara = Integer.parseInt(command.split(" ")[1]);
                 arrayNode.remove(commandPara);
-            } else if (StringUtils.isNumeric(command.trim())) {
-                JsonNode node = arrayNode.get(Integer.parseInt(command.trim()));
+            } else if (command.startsWith("edit")) {
+                int commandPara = Integer.parseInt(command.split(" ")[1]);
+                JsonNode node = arrayNode.get(commandPara);
                 nextMenu(node);
             } else {
                 System.out.println("illegal input!");
@@ -487,8 +487,8 @@ public class CSVParser {
     private ObjectNode groupTableModel(ObjectNode objectNode) throws Exception {
         //create table group model
         ObjectMapper objectMapper = new ObjectMapper();
-        ObjectNode tableGroup = objectMapper.createObjectNode();
-        ArrayNode tablesNode = tableGroup.putArray("tables");
+        ObjectNode tabularGroupModel = objectMapper.createObjectNode();
+        ArrayNode tablesNode = tabularGroupModel.putArray("tables");
         System.out.print("...");
         //parse the meta file to build model
         JsonNode tables = objectNode.get("tables");
@@ -518,9 +518,9 @@ public class CSVParser {
             }
         }
         System.out.print("...");
-        addAnnotations(tableGroup, objectNode, CSVModel.GROUPTABLE);
+        addAnnotations(tabularGroupModel, objectNode, CSVModel.GROUPTABLE);
         System.out.print("...");
-        return tableGroup;
+        return tabularGroupModel;
 
     }
 
