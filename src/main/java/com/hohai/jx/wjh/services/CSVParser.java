@@ -576,7 +576,7 @@ public class CSVParser {
         int columnNum= tableColumns.size();
         for( int i = 0 ; i < columnNum ; i++ ){
             ObjectNode schemaColumn = (ObjectNode) schemaColumns.get(i);
-            ObjectNode tableColumn = (ObjectNode) table.get(i);
+            ObjectNode tableColumn = (ObjectNode) tableColumns.get(i);
             Iterator<String> addingNames = schemaColumn.fieldNames();
             while ( addingNames.hasNext() ){
                 String addingName = addingNames.next();
@@ -709,11 +709,10 @@ public class CSVParser {
                         if (columnNode == null) {
                             columnNode = objectMapper.createObjectNode();
                             columnsNode.add(columnNode);
+                            columnNode.set("table", singleTable);
+                            columnNode.put("number", i + 1);
+                            columnNode.put("sourceNumber", sourceColumnNumber);
                         }
-                        columnNode.set("table", singleTable);
-                        columnNode.put("number", i + 1);
-                        columnNode.put("sourceNumber", sourceColumnNumber);
-                        columnsNode.add(columnNode);
 
                         //create a cell
                         ObjectNode dCell = objectMapper.createObjectNode();
