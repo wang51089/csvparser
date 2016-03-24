@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.hohai.jx.wjh.common.CSVModel;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.*;
@@ -413,39 +412,43 @@ public class CSVParser {
         ObjectNode singleTable = parseFile(objectNode);
         System.out.print("...");
         //add annotations
-        singleTable = addAnnotations(singleTable, objectNode, CSVModel.TABLE);
+        singleTable = addTableAnnotations(singleTable, objectNode);
         System.out.print("...");
         return singleTable;
     }
 
-    private ObjectNode addAnnotations(ObjectNode table, ObjectNode objectNode, CSVModel csvModel) {
+    private ObjectNode addTableAnnotations(ObjectNode singleTable, ObjectNode objectNode) throws Exception {
         Iterator<String> fieldNames = objectNode.fieldNames();
         while (fieldNames.hasNext()) {
             String fieldName = fieldNames.next();
             JsonNode fieldNode = objectNode.get(fieldName);
-            if (fieldName.equals("@context") || fieldName.equals("dialect") || fieldName.equals("@type") || fieldName.equals("@id")) {
+            if (fieldName.equals("@context") || fieldName.equals("dialect") || fieldName.equals("@type")) {
                 ////do nothing
-            } else if (fieldName.equals("tableSchema") && csvModel == CSVModel.TABLE) {
-                ObjectNode schemaNode = (ObjectNode) objectNode.get(fieldName);
-
-                ArrayNode columnsNode = (ArrayNode) schemaNode.get("columns");
-                table.set("columns", columnsNode);
+            }else if (  fieldName.equals("@id") ){
+                singleTable.remove("@id");
+                singleTable.set("id",fieldNode);
+            }else if (fieldName.equals("tableSchema")) {
+                ObjectNode schemaNode = (ObjectNode) objectNode.get("tableSchema");
+                //create column annotations
+                generateColumnAnnotation(singleTable, schemaNode);
+                //create foreign keys annotations
                 ArrayNode foreignKeysNode = (ArrayNode) schemaNode.get("foreignKeys");
-                table.set("foreignKeys", foreignKeysNode);
-
-
+                if ( foreignKeysNode != null ) {
+                    // add annotation to the table
+                    singleTable.set("foreignKeys", foreignKeysNode);
+                }
+                //create row annotations
                 JsonNode primarykeyNode = schemaNode.get("primaryKey");
                 if (primarykeyNode != null) {
                     if (primarykeyNode.getNodeType().equals("ARRAY")) {
                         Iterator<JsonNode> primaryIterator = ((ArrayNode) primarykeyNode).iterator();
                         while (primaryIterator.hasNext()) {
                             String primayKey = primaryIterator.next().asText();
-                            addPrimaryKey(table, primayKey);
+                            addPrimaryKey(singleTable, primayKey);
                         }
-
                     } else {
                         String primayKey = primarykeyNode.asText();
-                        addPrimaryKey(table, primayKey);
+                        addPrimaryKey(singleTable, primayKey);
                     }
                 }
                 JsonNode rowTitlesNode = schemaNode.get("rowTitles");
@@ -454,28 +457,132 @@ public class CSVParser {
                         Iterator<JsonNode> rowTitlesIterator = ((ArrayNode) rowTitlesNode).iterator();
                         while (rowTitlesIterator.hasNext()) {
                             String rowTitle = rowTitlesIterator.next().asText();
-                            addRowTitles(table, rowTitle);
+                            addRowTitles(singleTable, rowTitle);
                         }
-
                     } else {
                         String rowTitle = rowTitlesNode.asText();
-                        addRowTitles(table, rowTitle);
+                        addRowTitles(singleTable, rowTitle);
                     }
                 }
-
             } else if (fieldName.contains(":")) {
-                String[] names = fieldName.split(":");
-                if (context.containsKey(names[0])) {
-                    StringBuilder newName = new StringBuilder();
-                    newName.append(context.get(names[0]));
-                    newName.append(names[1]);
-                    table.set(newName.toString(), fieldNode);
-                }
+                replacePrefix(singleTable, fieldName, fieldNode);
             } else {
-                table.set(fieldName, fieldNode);
+                singleTable.set(fieldName, fieldNode);
             }
         }
-        return table;
+        return singleTable;
+    }
+
+    private ObjectNode addTableGroupAnnotations(ObjectNode tabularGroupModel, ObjectNode objectNode) throws Exception {
+        Iterator<String> fieldNames = objectNode.fieldNames();
+        // generate table annotations
+        while (fieldNames.hasNext()) {
+            String fieldName = fieldNames.next();
+            JsonNode fieldNode = objectNode.get(fieldName);
+            if (fieldName.equals("@context") || fieldName.equals("dialect") || fieldName.equals("@type") ) {
+                ////do nothing
+            }else if (  fieldName.equals("@id") ){
+                table.remove("@id");
+                table.set("id",fieldNode);
+            }else if (fieldName.contains(":")) {
+                replacePrefix(tabularGroupModel, fieldName, fieldNode);
+            } else {
+                tabularGroupModel.set(fieldName, fieldNode);
+            }
+        }
+
+        //generate tables foreign keys annotations
+        /*ArrayNode tablesNode = (ArrayNode) tabularGroupModel.get("tables");
+        Iterator<JsonNode> tablesIterator = tablesNode.iterator();
+        while (tablesIterator.hasNext()){
+            ObjectNode referencingTable = (ObjectNode) tablesIterator.next();
+            ArrayNode foreignKeysNode = (ArrayNode) tablesNode.get("foreignKeys");
+            if( foreignKeysNode != null ){
+                Iterator<JsonNode> foreignKeysIterator = foreignKeysNode.iterator();
+                while ( foreignKeysIterator.hasNext() ){
+                    ObjectNode foreignKeyNode = (ObjectNode) foreignKeysIterator.next();
+                    String referencedTableURL =  foreignKeyNode.get("reference").get("resource").asText();
+                    ObjectNode referencedTable =  getReferencedTable(tablesNode , referencedTableURL);
+                    ArrayNode referencingColumns = (ArrayNode) foreignKeyNode.get("columnReference");
+                    ArrayNode referencedColumns = (ArrayNode) foreignKeyNode.get("reference").get("columnReference");
+                    List<Integer> referencingNums = getColNums( referencingTable , referencingColumns );
+                    List<Integer> referencedNums = getColNums( referencedTable , referencedColumns );
+                    if( referencedTable == null ){
+                        throw new Exception("no such table : " + referencedTableURL);
+                    }
+                    ArrayNode rowsNode = (ArrayNode) referencingTable.get("rows");
+                    Iterator<JsonNode> rowsIterator = rowsNode.iterator();
+                    while ( rowsIterator.hasNext() ){
+                        ObjectNode row = (ObjectNode) rowsIterator.next();
+                        ArrayNode referencedRowsNode = (ArrayNode) referencingTable.get("rows");
+                        Iterator<JsonNode> referencedIterator = referencedRowsNode.iterator();
+                        while ( referencedIterator.hasNext() ){
+                            ObjectNode referencedRow = (ObjectNode) referencedIterator.next();
+                            for ( int j = 0 ; j < referencingNums.size() ; j ++ ){
+
+                            }
+                        }
+                    }
+                }
+            }
+        }*/
+        return tabularGroupModel;
+    }
+
+    private List<Integer> getColNums(ObjectNode tableNode, ArrayNode referencingColumns) {
+        List<Integer> colNums = new ArrayList<Integer>();
+        ArrayNode columnsNode = (ArrayNode) tableNode.get("columns");
+        Iterator<JsonNode> columnNames = referencingColumns.elements();
+
+        while ( columnNames.hasNext() ) {
+            String columnName = columnNames.next().asText();
+            for( int i = 0 ; i < columnsNode.size() ; i ++ ){
+                ObjectNode columnNode = (ObjectNode) columnsNode.get(i);
+                if( columnNode.get("name").equals(columnName) ){
+                    colNums.add(i);
+                }
+            }
+        }
+        return colNums;
+    }
+
+    private ObjectNode getReferencedTable(ArrayNode tablesNode, String referencedTableURL) {
+        Iterator<JsonNode> tableNodeI = tablesNode.iterator();
+        while ( tableNodeI.hasNext() ){
+            ObjectNode tableNode = (ObjectNode) tableNodeI.next();
+            if( tableNode.get("url").asText().equals(referencedTableURL) ){
+                return tableNode;
+            }
+        }
+        return null;
+    }
+
+    private void replacePrefix(ObjectNode tabularGroupModel, String fieldName, JsonNode fieldNode) {
+        String[] names = fieldName.split(":");
+        if (context.containsKey(names[0])) {
+            StringBuilder newName = new StringBuilder();
+            newName.append(context.get(names[0]));
+            newName.append(names[1]);
+            tabularGroupModel.set(newName.toString(), fieldNode);
+        }
+    }
+
+    private void generateColumnAnnotation(ObjectNode table, ObjectNode schemaNode) throws Exception {
+        ArrayNode schemaColumns = (ArrayNode) schemaNode.get("columns");
+        ArrayNode tableColumns = (ArrayNode) table.get("columns");
+        if( schemaColumns.size() != tableColumns.size()  ){
+            throw new Exception(" the model have different column number against the table schema! ");
+        }
+        int columnNum= tableColumns.size();
+        for( int i = 0 ; i < columnNum ; i++ ){
+            ObjectNode schemaColumn = (ObjectNode) schemaColumns.get(i);
+            ObjectNode tableColumn = (ObjectNode) table.get(i);
+            Iterator<String> addingNames = schemaColumn.fieldNames();
+            while ( addingNames.hasNext() ){
+                String addingName = addingNames.next();
+                tableColumn.set( addingName , schemaColumn.get(addingName) );
+            }
+        }
     }
 
     /**
@@ -518,7 +625,7 @@ public class CSVParser {
             }
         }
         System.out.print("...");
-        addAnnotations(tabularGroupModel, objectNode, CSVModel.GROUPTABLE);
+        addTableGroupAnnotations(tabularGroupModel, objectNode);
         System.out.print("...");
         return tabularGroupModel;
 
